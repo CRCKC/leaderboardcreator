@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -32,27 +32,36 @@ const Admin = () => {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [selectedLeaderboard, setSelectedLeaderboard] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Form states
   const [newLeaderboardName, setNewLeaderboardName] = useState("");
   const [newLeaderboardDesc, setNewLeaderboardDesc] = useState("");
   const [newPlayerName, setNewPlayerName] = useState("");
   const [newScore, setNewScore] = useState("");
-  
+
   const [leaderboardDialogOpen, setLeaderboardDialogOpen] = useState(false);
+  const [editLeaderboardDialogOpen, setEditLeaderboardDialogOpen] = useState(false);
   const [entryDialogOpen, setEntryDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
+  const [editingLeaderboard, setEditingLeaderboard] = useState<Leaderboard | null>(null);
+  const [editLeaderboardName, setEditLeaderboardName] = useState("");
+  const [editLeaderboardDesc, setEditLeaderboardDesc] = useState("");
   const [editPlayerName, setEditPlayerName] = useState("");
   const [editScore, setEditScore] = useState("");
   const [pointsToAdd, setPointsToAdd] = useState("");
-  
+  const addPointsRef = useRef<HTMLInputElement | null>(null);
+  const [addPointsDialogOpen, setAddPointsDialogOpen] = useState(false);
+  const [addPointsEntry, setAddPointsEntry] = useState<Entry | null>(null);
+  const [addPointsOnlyValue, setAddPointsOnlyValue] = useState("");
+  const addPointsOnlyRef = useRef<HTMLInputElement | null>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
-      
+
       if (!session) {
         navigate("/auth");
         return;
@@ -101,6 +110,39 @@ const Admin = () => {
     setLeaderboards(data || []);
   };
 
+  const handleOpenEditLeaderboard = (lb: Leaderboard) => {
+    setEditingLeaderboard(lb);
+    setEditLeaderboardName(lb.name);
+    setEditLeaderboardDesc(lb.description || "");
+    setEditLeaderboardDialogOpen(true);
+  };
+
+  const handleUpdateLeaderboard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLeaderboard) return;
+
+    if (!editLeaderboardName.trim()) {
+      toast.error("Please enter a leaderboard name");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("leaderboards")
+      .update({ name: editLeaderboardName, description: editLeaderboardDesc || null })
+      .eq("id", editingLeaderboard.id);
+
+    if (error) {
+      if (import.meta.env.DEV) console.error("Leaderboard update error:", error);
+      toast.error(`Failed to update leaderboard: ${error.message}`);
+      return;
+    }
+
+    toast.success("Leaderboard updated!");
+    setEditLeaderboardDialogOpen(false);
+    setEditingLeaderboard(null);
+    fetchLeaderboards();
+  };
+
   const fetchEntries = async (leaderboardId: string) => {
     const { data, error } = await supabase
       .from("entries")
@@ -118,7 +160,7 @@ const Admin = () => {
 
   const handleCreateLeaderboard = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newLeaderboardName.trim()) {
       toast.error("Please enter a leaderboard name");
       return;
@@ -142,7 +184,7 @@ const Admin = () => {
 
   const handleCreateEntry = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedLeaderboard) {
       toast.error("Please select a leaderboard");
       return;
@@ -224,12 +266,33 @@ const Admin = () => {
     setEditDialogOpen(true);
   };
 
+  // Focus the "Add Points" input whenever the edit dialog opens.
+  useEffect(() => {
+    if (editDialogOpen) {
+      // Wait a tick for the dialog content to mount.
+      const t = setTimeout(() => {
+        addPointsRef.current?.focus();
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [editDialogOpen]);
+
+  // Focus the input in the "add points only" dialog when it opens
+  useEffect(() => {
+    if (addPointsDialogOpen) {
+      const t = setTimeout(() => {
+        addPointsOnlyRef.current?.focus();
+      }, 0);
+      return () => clearTimeout(t);
+    }
+  }, [addPointsDialogOpen]);
+
   const handleUpdateEntry = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!editingEntry) return;
 
-    const newScore = pointsToAdd 
+    const newScore = pointsToAdd
       ? editingEntry.score + parseInt(pointsToAdd)
       : parseInt(editScore);
 
@@ -255,6 +318,40 @@ const Admin = () => {
     if (selectedLeaderboard) {
       fetchEntries(selectedLeaderboard);
     }
+  };
+
+  const handleAddPointsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addPointsEntry) return;
+    if (!addPointsOnlyValue) {
+      toast.error("Please enter points to add");
+      return;
+    }
+
+    const points = parseInt(addPointsOnlyValue);
+    if (Number.isNaN(points)) {
+      toast.error("Invalid points value");
+      return;
+    }
+
+    const newScore = addPointsEntry.score + points;
+
+    const { error } = await supabase
+      .from("entries")
+      .update({ score: newScore })
+      .eq("id", addPointsEntry.id);
+
+    if (error) {
+      if (import.meta.env.DEV) console.error("Add points error:", error);
+      toast.error(`Failed to add points: ${error.message}`);
+      return;
+    }
+
+    toast.success("Points added!");
+    setAddPointsDialogOpen(false);
+    setAddPointsEntry(null);
+    setAddPointsOnlyValue("");
+    if (selectedLeaderboard) fetchEntries(selectedLeaderboard);
   };
 
   const handleSignOut = async () => {
@@ -332,6 +429,38 @@ const Admin = () => {
                   />
                 </div>
                 <Button type="submit" className="w-full">Create</Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Leaderboard Dialog */}
+          <Dialog open={editLeaderboardDialogOpen} onOpenChange={setEditLeaderboardDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Leaderboard</DialogTitle>
+                <DialogDescription>Edit name and description for the selected leaderboard</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleUpdateLeaderboard} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lb-name">Name</Label>
+                  <Input
+                    id="edit-lb-name"
+                    placeholder="Leaderboard Name"
+                    value={editLeaderboardName}
+                    onChange={(e) => setEditLeaderboardName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lb-desc">Description (optional)</Label>
+                  <Textarea
+                    id="edit-lb-desc"
+                    placeholder="Tournament details..."
+                    value={editLeaderboardDesc}
+                    onChange={(e) => setEditLeaderboardDesc(e.target.value)}
+                  />
+                </div>
+                <Button type="submit" className="w-full">Save</Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -423,6 +552,7 @@ const Admin = () => {
                       id="add-points"
                       type="number"
                       placeholder="100"
+                      ref={addPointsRef}
                       value={pointsToAdd}
                       onChange={(e) => {
                         setPointsToAdd(e.target.value);
@@ -438,6 +568,35 @@ const Admin = () => {
               </DialogContent>
             </Dialog>
           )}
+
+          {/* Add Points Only Dialog - opened by clicking non-button areas of an entry card */}
+          <Dialog open={addPointsDialogOpen} onOpenChange={setAddPointsDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Points</DialogTitle>
+                <DialogDescription>Add points to this player's score</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleAddPointsSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="add-only-points">Points to Add</Label>
+                  <Input
+                    id="add-only-points"
+                    type="number"
+                    placeholder="100"
+                    ref={addPointsOnlyRef}
+                    value={addPointsOnlyValue}
+                    onChange={(e) => setAddPointsOnlyValue(e.target.value)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Current: {addPointsEntry?.score ?? "-"} {addPointsOnlyValue && `→ New: ${(addPointsEntry?.score ?? 0) + parseInt(addPointsOnlyValue || "0")
+                      }`}
+                  </p>
+                </div>
+                <Button type="submit" className="w-full">Add Points</Button>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -455,11 +614,10 @@ const Admin = () => {
                   {leaderboards.map((lb) => (
                     <div
                       key={lb.id}
-                      className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-all ${
-                        selectedLeaderboard === lb.id
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/50"
-                      }`}
+                      className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-all ${selectedLeaderboard === lb.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                        }`}
                       onClick={() => {
                         setSelectedLeaderboard(lb.id);
                         fetchEntries(lb.id);
@@ -471,16 +629,28 @@ const Admin = () => {
                           <p className="text-sm text-muted-foreground">{lb.description}</p>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteLeaderboard(lb.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditLeaderboard(lb);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteLeaderboard(lb.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -508,7 +678,12 @@ const Admin = () => {
                   {entries.map((entry) => (
                     <div
                       key={entry.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-border"
+                      className="flex items-center justify-between p-4 rounded-lg border border-border cursor-pointer"
+                      onClick={() => {
+                        setAddPointsEntry(entry);
+                        setAddPointsOnlyValue("");
+                        setAddPointsDialogOpen(true);
+                      }}
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
@@ -523,14 +698,20 @@ const Admin = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleEditEntry(entry)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditEntry(entry);
+                          }}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDeleteEntry(entry.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteEntry(entry.id);
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

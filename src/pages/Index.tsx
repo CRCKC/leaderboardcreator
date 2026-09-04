@@ -69,7 +69,7 @@ const Index = () => {
         const { data: entriesData, error: entriesError } = await supabase
           .from("entries")
           .select("*")
-          .order("rank", { ascending: true });
+          .order("score", { ascending: false });
 
         if (entriesError) throw entriesError;
 
@@ -161,10 +161,7 @@ const Index = () => {
                 key={leaderboard.id}
                 title={leaderboard.name}
                 description={leaderboard.description || undefined}
-                entries={(entriesByBoard[leaderboard.id] || []).map(e => ({
-                  ...e,
-                  rank: e.rank || 0
-                }))}
+                entries={entriesByBoard[leaderboard.id] || []}
               />
             ))}
           </div>

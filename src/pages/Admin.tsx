@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Plus, LogOut, Trash2, Edit, Home } from "lucide-react";
+import { rankEntries } from "@/lib/ranking";
 import type { Session } from "@supabase/supabase-js";
 
 interface Leaderboard {
@@ -148,7 +149,7 @@ const Admin = () => {
       .from("entries")
       .select("*")
       .eq("leaderboard_id", leaderboardId)
-      .order("rank", { ascending: true });
+      .order("score", { ascending: false });
 
     if (error) {
       toast.error("Failed to fetch entries");
@@ -370,6 +371,8 @@ const Admin = () => {
   if (!isAdmin) {
     return null;
   }
+
+  const rankedEntries = rankEntries(entries);
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -675,7 +678,7 @@ const Admin = () => {
                 <p className="text-center text-muted-foreground py-8">No entries yet</p>
               ) : (
                 <div className="space-y-2">
-                  {entries.map((entry) => (
+                  {rankedEntries.map((entry) => (
                     <div
                       key={entry.id}
                       className="flex items-center justify-between p-4 rounded-lg border border-border cursor-pointer"

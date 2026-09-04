@@ -33,7 +33,8 @@ jobs:
 
       - name: Build
         env:
-          BASE_PATH: '/${{ github.event.repository.name }}'
+          # This repository uses the custom domain leaderboard.crckc.org.hk.
+          BASE_PATH: '/'
         run: npm run build
 
       - name: Upload Artifacts

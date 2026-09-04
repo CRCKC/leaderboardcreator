@@ -18,9 +18,9 @@ const LeaderboardCard = ({ title, description, entries }: LeaderboardCardProps) 
   const rankedEntries = rankEntries(entries);
 
   const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Trophy className="h-6 w-6 text-accent" />;
-    if (rank === 2) return <Medal className="h-6 w-6 text-muted-foreground" />;
-    if (rank === 3) return <Medal className="h-6 w-6 text-muted-foreground" />;
+    if (rank === 1) return <Trophy className="h-6 w-6 text-accent-foreground" strokeWidth={3} />;
+    if (rank === 2) return <Medal className="h-6 w-6 text-slate-700" strokeWidth={3} />;
+    if (rank === 3) return <Medal className="h-6 w-6 text-white" strokeWidth={3} />;
     return null;
   };
 

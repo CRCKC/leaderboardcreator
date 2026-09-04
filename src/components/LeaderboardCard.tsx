@@ -18,16 +18,16 @@ const LeaderboardCard = ({ title, description, entries }: LeaderboardCardProps) 
   const rankedEntries = rankEntries(entries);
 
   const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Trophy className="h-6 w-6 text-accent-foreground" strokeWidth={3} />;
-    if (rank === 2) return <Medal className="h-6 w-6 text-slate-700" strokeWidth={3} />;
-    if (rank === 3) return <Medal className="h-6 w-6 text-white" strokeWidth={3} />;
+    if (rank === 1) return <Trophy className="h-6 w-6 text-amber-300" strokeWidth={2.5} />;
+    if (rank === 2) return <Medal className="h-6 w-6 text-slate-200" strokeWidth={2.5} />;
+    if (rank === 3) return <Medal className="h-6 w-6 text-orange-300" strokeWidth={2.5} />;
     return null;
   };
 
   const getRankBadgeClass = (rank: number) => {
-    if (rank === 1) return "bg-gradient-gold text-accent-foreground font-bold";
-    if (rank === 2) return "bg-gradient-silver text-foreground font-semibold";
-    if (rank === 3) return "bg-gradient-bronze text-foreground font-semibold";
+    if (rank === 1) return "bg-amber-400/15 ring-1 ring-inset ring-amber-300/60";
+    if (rank === 2) return "bg-slate-300/15 ring-1 ring-inset ring-slate-200/60";
+    if (rank === 3) return "bg-orange-400/15 ring-1 ring-inset ring-orange-300/60";
     return "bg-muted text-muted-foreground";
   };
 
